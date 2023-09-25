@@ -1,7 +1,8 @@
 const { contextBridge, ipcRenderer } = require('electron')
 
 contextBridge.exposeInMainWorld('files', {
-  showPicker: () => ipcRenderer.invoke('select-file')
+  encodeFile: (pass) => ipcRenderer.invoke('select-file', pass),
+  decodeFile: (pass) => ipcRenderer.invoke('decode-file', pass)
 })
 
 
