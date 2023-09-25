@@ -5,10 +5,17 @@ const https = require('https')
 const MD5 = require('./md5');
 const readline = require('readline');
 const { once } = require('events');
+const { fork } = require('child_process');
+const path = require('path');
 
 function decryptChunk(bigint, prv, n) {
 	return qpow(bigint, prv, n);
 }
+
+let controller = new AbortController();
+let signal = controller.signal;
+
+let passLength = 1;
 
 const recoverPassword = async (event, mainWindow) => {
 	const {stream, filepath} = await showFileDialog();
@@ -46,7 +53,6 @@ const recoverPassword = async (event, mainWindow) => {
 
 	let firstLine = true;
 	lineStream.on('line', (line) => {
-		console.log("line", line);
 		if(!firstLine) {
 			return;
 		}
@@ -59,45 +65,17 @@ const recoverPassword = async (event, mainWindow) => {
 		});
 
 
-		const verifier = BigInt(line);
-		let passLength = 1;
-		const maxPassLength = 8;
-		let passCharacters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+-=[]{};:,.<>/?`~';
-
-		while(passLength < maxPassLength) {
-			mainWindow.webContents.send('notification', {
-				message: 'Trying passwords of length ' + passLength + '...',
-				progress: 20 + 5 * passLength + Math.random() * 5,
-			});
-			let combinations = getAllCombinations(passCharacters, passLength);
-			for(let i = 0; i < combinations.length; i++) {
-				const {pub, prv, n} = generateKeys(combinations[i]);
-				// this also forces a frontend update
-				mainWindow.webContents.send('notification', {
-					message: 'Trying password: ' + combinations[i],
-					progress: 20 + 5 * passLength + Math.random() * 5,
-				});
-				const decryptedChunk = decryptChunk(verifier, prv, n);
-				if(decryptedChunk === 2137420n) {
-					mainWindow.webContents.send('notification', {
-						message: 'Password recovered successfully: ' + combinations[i],
-						progress: 100,
-					});
-					dialog.showMessageBox({
-						message: 'Password recovered successfully: ' + combinations[i],
-						buttons: ['OK']
-					});
-					lineStream.close();
-					return;
-				}
-			}
-			passLength++;
+		if(controller) {
+			controller.abort();
 		}
 
-		mainWindow.webContents.send('notification', {
-			message: 'Password recovery failed.',
-			progress: 0,
-		});
+		controller = new AbortController();
+		signal = controller.signal;
+		passLength = 1;
+
+
+		lineStream.close();
+		passwordForker(mainWindow, line);
 	});
 
 
@@ -109,6 +87,71 @@ const recoverPassword = async (event, mainWindow) => {
 			progress: 100,
 		});
 	}
+}
+
+function passwordForker(mainWindow, line) {
+	const verifier = line;
+	const maxPassLength = 8;
+	let passCharacters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+
+	function killChildren() {
+		controller.abort();
+	}
+
+	mainWindow.webContents.send('notification', {
+		message: 'Trying passwords of length ' + passLength + '...',
+		progress: 20 + 5 * passLength + Math.random() * 5,
+	});
+
+	let combinations = getAllCombinations(passCharacters, passLength);
+
+	const len = combinations.length;
+
+	let children = [];
+
+	const BIRTHS_COUNT = 20;
+
+	let passwordFound = false;
+
+	for(let i = 0; i < BIRTHS_COUNT; i++) {
+		const child = fork(path.join(__dirname, 'multithreading.js'), [toString(i)], { signal });
+		const childCombination = combinations.splice(0, Math.floor(len / BIRTHS_COUNT));
+		child.on('message', (msg) => {
+			if(msg.success) {
+				passwordFound = true;
+				mainWindow.webContents.send('notification', {
+					message: 'Password recovered successfully: ' + msg.pass,
+					progress: 100,
+				});
+				dialog.showMessageBox({
+					message: 'Password recovered successfully: ' + msg.pass,
+					buttons: ['OK']
+				});
+				killChildren();
+			}
+		});
+		child.on('error', (err) => {
+			//ignore
+		});
+		children.push(child);
+		child.send({ verifier, childCombination });
+		child.on('exit', () => {
+			console.log('child exited')
+			children = children.filter(x => x !== child);
+			if(children.length === 0 && !passwordFound) {
+				passLength++;
+				if(passLength > maxPassLength) {
+					mainWindow.webContents.send('notification', {
+						message: 'Password recovery failed.',
+						progress: 0,
+					});
+				} else {
+					passwordForker(mainWindow, line);
+				}
+			}
+		})
+	}
+
 }
 
 function getAllCombinations(characters, length) {
@@ -434,4 +477,4 @@ const showFileDialog = async () => {
 	}
 }
 
-module.exports = { encryptFile, decryptFile, recoverPassword };
+module.exports = { encryptFile, decryptFile, recoverPassword, decryptChunk, generateKeys };
