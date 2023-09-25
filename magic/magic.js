@@ -13,6 +13,7 @@ function decryptChunk(bigint, prv, n) {
 const decryptFile = async (event, pass) => {
 	if(!pass) {
 		console.log('no pass')
+		// todo: inform user
 		return;
 	}
 
@@ -21,6 +22,7 @@ const decryptFile = async (event, pass) => {
 
 	if(!stream || !filepath.endsWith('.enc')) {
 		console.log('no file')
+		// todo: inform user
 		return;
 	}
 
@@ -39,11 +41,19 @@ const decryptFile = async (event, pass) => {
 		const decryptedChunk = decryptChunk(BigInt(line), prv, n);
 
 		if(firstLine) {
+			if(decryptedChunk !== 2137420n) {
+				console.log('wrong password');
+				// TODO: inform user
+				lineStream.close();
+				writeStream.close();
+				return;
+			}
+
 			firstLine = false;
 			return;
 		}
 
-		const chunk = decryptedChunk.toString(16).match(/.{1,2}/g).map(x => parseInt(x, 16));
+        const chunk = decryptedChunk.toString(16).padStart(4, '0').match(/.{1,2}/g).map(x => parseInt(x, 16));
 		const buffer = Buffer.from(chunk);
 		writeStream.write(buffer);
 	});
@@ -55,6 +65,7 @@ const decryptFile = async (event, pass) => {
 const encryptFile = async (event, pass) => {
 	if(!pass) {
 		console.log('no pass')
+		// todo: inform user
 		return;
 	}
 	const {pub, prv, n} = generateKeys(pass);
@@ -62,27 +73,41 @@ const encryptFile = async (event, pass) => {
 
 	if(!stream) {
 		console.log('no file')
+		// todo: inform user
 		return;
 	}
 
 	stream.pause();
 	const writeStream = fs.createWriteStream(filepath + '.enc');
-	stream.on('readable', () => {
+	stream.once('readable', () => {
 		const encryptedHeader = encryptChunk(2137420n, pub, n);
 		console.log(encryptedHeader);
 		writeStream.write(encryptedHeader.toString() + '\n');
 
-		while(true) {
-			const chunk = getChunk(stream);
-			if (chunk === null) {
-				stream.close();
-				return;
+		function doEncryption() {
+			while(true) {
+				const chunk = getChunk(stream);
+				if (chunk === null) {
+					break;
+				}
+
+				const encryptedChunk = encryptChunk(chunk, pub, n);
+
+				writeStream.write(encryptedChunk.toString() + '\n');
 			}
-
-			const encryptedChunk = encryptChunk(chunk, pub, n);
-
-			writeStream.write(encryptedChunk.toString() + '\n');
 		}
+
+		doEncryption();
+
+		stream.on('readable', () => {
+			doEncryption();
+		})
+
+		stream.on('end', () => {
+			//todo: inform user
+			writeStream.close();
+			stream.close();
+		})
 	})
 }
 
@@ -203,7 +228,10 @@ const showFileDialog = async () => {
 		// return file.toJSON().data;
 
 		// get file as stream
-		const stream = fs.createReadStream(res.filePaths[0]);
+		const stream = fs.createReadStream(res.filePaths[0], {
+			start: 0,
+			end: Number.MAX_SAFE_INTEGER,
+		});
 		return {stream, filepath: res.filePaths[0]};
 
 	} else {
