@@ -3,18 +3,24 @@
   <head>
     <meta charset="UTF-8" />
     <!-- https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP -->
-    <meta
-      http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'"
-    />
-    <meta
-      http-equiv="X-Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'"
-    />
     <title>Hello from Electron renderer!</title>
+
+    <style>
+      #progress {
+        width: 0;
+        height: 25px;
+        line-height: 25px;
+        background-color: #00ff00;
+        transition: width 0.1s;
+        overflow: hidden;
+        color: #003100;
+        text-align: center;
+        min-width: max-content;
+      }
+    </style>
   </head>
   <body>
-    <h1>Hello from Electron renderer!</h1>
+    <h1>SRA algorithm: Proof Of Concept!</h1>
     
     <button type="button" id="btnEncrypt">Encrypt a file</button>
     <br>
@@ -22,8 +28,19 @@
     <br>
     Password: <strong id="filePath"></strong>
     <br>
-    
     <input type="password" id="password" name="password" />
+
+
+    <br>
+    <br>
+    <button type="button" id="btnRecoverPassword">Recover Password</button>
+    <br>
+    
+
+    <div class="status">
+      <p id="status">Status: Waiting for user.</p>
+      <div id="progress"></div>
+    </div>
 
     <script src="renderer.js"></script>
   </body>

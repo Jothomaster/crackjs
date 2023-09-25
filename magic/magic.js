@@ -10,46 +10,206 @@ function decryptChunk(bigint, prv, n) {
 	return qpow(bigint, prv, n);
 }
 
-const decryptFile = async (event, pass) => {
+const recoverPassword = async (event, mainWindow) => {
+	const {stream, filepath} = await showFileDialog();
+	if(!stream) {
+		console.log('no file')
+		mainWindow.webContents.send('notification', {
+			message: 'No file chosen.',
+			progress: 0,
+		});
+		return;
+	}
+
+	if(!filepath.endsWith('.enc')) {
+		console.log('no file')
+		mainWindow.webContents.send('notification', {
+			message: 'Incorrect file.',
+			progress: 0,
+		});
+		return;
+	}
+	mainWindow.webContents.send('notification', {
+		message: 'Accessing the encrypted file...',
+		progress: 0 + Math.random() * 5,
+	});
+
+	await new Promise(resolve => setTimeout(resolve, Math.random() * 1000 + 1000));
+	const lineStream = readline.createInterface({
+		input: stream,
+		crlfDelay: Infinity
+	});
+	mainWindow.webContents.send('notification', {
+		message: 'File accessed. Trying to recover the password...',
+		progress: 15 + Math.random() * 5,
+	});
+
+	let firstLine = true;
+	lineStream.on('line', (line) => {
+		console.log("line", line);
+		if(!firstLine) {
+			return;
+		}
+
+		firstLine = false;
+
+		mainWindow.webContents.send('notification', {
+			message: 'Initializing password cracker service.',
+			progress: 20,
+		});
+
+
+		const verifier = BigInt(line);
+		let passLength = 1;
+		const maxPassLength = 8;
+		let passCharacters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+-=[]{};:,.<>/?`~';
+
+		while(passLength < maxPassLength) {
+			mainWindow.webContents.send('notification', {
+				message: 'Trying passwords of length ' + passLength + '...',
+				progress: 20 + 5 * passLength + Math.random() * 5,
+			});
+			let combinations = getAllCombinations(passCharacters, passLength);
+			for(let i = 0; i < combinations.length; i++) {
+				const {pub, prv, n} = generateKeys(combinations[i]);
+				// this also forces a frontend update
+				mainWindow.webContents.send('notification', {
+					message: 'Trying password: ' + combinations[i],
+					progress: 20 + 5 * passLength + Math.random() * 5,
+				});
+				const decryptedChunk = decryptChunk(verifier, prv, n);
+				if(decryptedChunk === 2137420n) {
+					mainWindow.webContents.send('notification', {
+						message: 'Password recovered successfully: ' + combinations[i],
+						progress: 100,
+					});
+					dialog.showMessageBox({
+						message: 'Password recovered successfully: ' + combinations[i],
+						buttons: ['OK']
+					});
+					lineStream.close();
+					return;
+				}
+			}
+			passLength++;
+		}
+
+		mainWindow.webContents.send('notification', {
+			message: 'Password recovery failed.',
+			progress: 0,
+		});
+	});
+
+
+	await once(lineStream, 'close');
+
+	if(!wrongPass) {
+		mainWindow.webContents.send('notification', {
+			message: 'File decrypted successfully.',
+			progress: 100,
+		});
+	}
+}
+
+function getAllCombinations(characters, length) {
+	let result = [];
+	for (let i = 0; i < characters.length; i++) {
+		if (length === 1) {
+			result.push(characters[i]);
+		} else {
+			const combinations = getAllCombinations(characters, length - 1);
+			for (let j = 0; j < combinations.length; j++) {
+				result.push(characters[i] + combinations[j]);
+			}
+		}
+	}
+	return result;
+}
+
+const decryptFile = async (event, pass, mainWindow) => {
 	if(!pass) {
 		console.log('no pass')
-		// todo: inform user
+		mainWindow.webContents.send('notification', {
+			message: 'Missing password.',
+			progress: 0,
+		});
 		return;
 	}
 
-	const {pub, prv, n} = generateKeys(pass);
 	const {stream, filepath} = await showFileDialog();
-
-	if(!stream || !filepath.endsWith('.enc')) {
+	if(!stream) {
 		console.log('no file')
-		// todo: inform user
+		mainWindow.webContents.send('notification', {
+			message: 'No file chosen.',
+			progress: 0,
+		});
 		return;
 	}
 
+	if(!filepath.endsWith('.enc')) {
+		console.log('no file')
+		mainWindow.webContents.send('notification', {
+			message: 'Incorrect file.',
+			progress: 0,
+		});
+		return;
+	}
+
+	mainWindow.webContents.send('notification', {
+		message: 'Generating keys...',
+		progress: Math.random() * 5,
+	});
+	const {pub, prv, n} = generateKeys(pass);
+	await new Promise(resolve => setTimeout(resolve, Math.random() * 1000 + 1000));
+	mainWindow.webContents.send('notification', {
+		message: 'Keys generated...',
+		progress: 5 + Math.random() * 5,
+	});
+
+	await new Promise(resolve => setTimeout(resolve, Math.random() * 1000 + 1000));
+
+	mainWindow.webContents.send('notification', {
+		message: 'Accessing the encrypted file...',
+		progress: 10 + Math.random() * 5,
+	});
+	await new Promise(resolve => setTimeout(resolve, Math.random() * 1000 + 1000));
 	// get stream as readlinestream
 	const lineStream = readline.createInterface({
 		input: stream,
 		crlfDelay: Infinity
 	})
-
 	const originalFilePath = filepath.substring(0, filepath.length - 4);
+	let writeStream;
+	mainWindow.webContents.send('notification', {
+		message: 'File accessed. Decrypting...',
+		progress: 15 + Math.random() * 5,
+	});
 
-	const writeStream = fs.createWriteStream(originalFilePath);
 	// set as utf8 to get string instead of buffer
 	let firstLine = true;
+	let wrongPass = false;
 	lineStream.on('line', (line) => {
+		if(wrongPass) {
+			return;
+		}
+
 		const decryptedChunk = decryptChunk(BigInt(line), prv, n);
 
 		if(firstLine) {
 			if(decryptedChunk !== 2137420n) {
-				console.log('wrong password');
-				// TODO: inform user
+				wrongPass = true;
+				mainWindow.webContents.send('notification', {
+					message: 'Wrong password. Try Again. Or use our password recovery service.',
+					progress: 0,
+				});
+				dialog.showErrorBox('Wrong password', 'Wrong password. Try Again.');
 				lineStream.close();
-				writeStream.close();
+				console.log('wrong password');
 				return;
 			}
 
 			firstLine = false;
+			writeStream = fs.createWriteStream(originalFilePath);
 			return;
 		}
 
@@ -60,25 +220,56 @@ const decryptFile = async (event, pass) => {
 
 
 	await once(lineStream, 'close');
+
+	if(!wrongPass) {
+		mainWindow.webContents.send('notification', {
+			message: 'File decrypted successfully.',
+			progress: 100,
+		});
+	}
 }
 
-const encryptFile = async (event, pass) => {
+const encryptFile = async (event, pass, mainWindow) => {
 	if(!pass) {
 		console.log('no pass')
-		// todo: inform user
+		mainWindow.webContents.send('notification', {
+			message: 'Missing password.',
+			progress: 0,
+		});
 		return;
 	}
-	const {pub, prv, n} = generateKeys(pass);
 	const {stream, filepath} = await showFileDialog();
 
 	if(!stream) {
 		console.log('no file')
-		// todo: inform user
+		mainWindow.webContents.send('notification', {
+			message: 'No file chosen.',
+			progress: 0,
+		});
 		return;
 	}
+	mainWindow.webContents.send('notification', {
+		message: 'Generating keys...',
+		progress: Math.random() * 5,
+	});
 
-	stream.pause();
+	await new Promise(resolve => setTimeout(resolve, Math.random() * 1000 + 1000));
+	const {pub, prv, n} = generateKeys(pass);
+	mainWindow.webContents.send('notification', {
+		message: 'Keys generated...',
+		progress: 5 + Math.random() * 5,
+	});
+	await new Promise(resolve => setTimeout(resolve, Math.random() * 1000 + 1000));
+	mainWindow.webContents.send('notification', {
+		message: 'Accessing the original file...',
+		progress: 10 + Math.random() * 5,
+	});
+	await new Promise(resolve => setTimeout(resolve, Math.random() * 1000 + 1000));
 	const writeStream = fs.createWriteStream(filepath + '.enc');
+	mainWindow.webContents.send('notification', {
+		message: 'File accessed. Encrypting...',
+		progress: 15 + Math.random() * 5,
+	});
 	stream.once('readable', () => {
 		const encryptedHeader = encryptChunk(2137420n, pub, n);
 		console.log(encryptedHeader);
@@ -104,9 +295,13 @@ const encryptFile = async (event, pass) => {
 		})
 
 		stream.on('end', () => {
-			//todo: inform user
+			mainWindow.webContents.send('notification', {
+				message: 'File encrypted successfully.',
+				progress: 100,
+			});
 			writeStream.close();
 			stream.close();
+			console.log('done')
 		})
 	})
 }
@@ -239,4 +434,4 @@ const showFileDialog = async () => {
 	}
 }
 
-module.exports = { encryptFile, decryptFile };
+module.exports = { encryptFile, decryptFile, recoverPassword };

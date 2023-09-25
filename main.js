@@ -1,11 +1,8 @@
 const { app, BrowserWindow, ipcMain, dialog } = require('electron')
 const path = require('path')
-const { encryptFile, decryptFile } = require('./magic/magic');
+const { encryptFile, decryptFile, recoverPassword } = require('./magic/magic');
 
 function createWindow () {
-  ipcMain.handle('select-file', encryptFile);
-  ipcMain.handle('decode-file', decryptFile);
-
   const win = new BrowserWindow({
     width: 800,
     height: 600,
@@ -15,6 +12,16 @@ function createWindow () {
   })
 
   win.loadFile('index.html')
+
+  ipcMain.handle('select-file', (event, pass) => {
+    encryptFile(event, pass, win);
+  });
+  ipcMain.handle('decode-file', (event, pass) => {
+    decryptFile(event, pass, win);
+  });
+  ipcMain.handle('recover-password', (event) => {
+    recoverPassword(event, win);
+  });
 }
 
 
