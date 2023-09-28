@@ -5,7 +5,9 @@ const { encryptFile, decryptFile, recoverPassword } = require('./magic/magic');
 function createWindow () {
   const win = new BrowserWindow({
     width: 800,
-    height: 600,
+    height: 400,
+	minWidth: 300,
+	minHeight: 380,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js')
     }

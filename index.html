@@ -3,42 +3,99 @@
   <head>
     <meta charset="UTF-8" />
     <!-- https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP -->
-    <title>Hello from Electron renderer!</title>
+    <title>Crack</title>
 
     <style>
-      #progress {
-        width: 0;
-        height: 25px;
-        line-height: 25px;
-        background-color: #00ff00;
-        transition: width 0.1s;
-        overflow: hidden;
-        color: #003100;
-        text-align: center;
-        min-width: max-content;
-      }
+		* {
+			margin: 0;
+			padding: 0;
+			box-sizing: border-box;
+		}
+		
+		html, input, button {
+			font-size: 0.97em;
+			font-family: 'Courier New', Courier, monospace;
+			color: #FFE8D1;
+		}
+		
+		body {
+			background-color: #0F5257;
+			width: 100vw;
+		}
+		
+		input, button {
+			background-color: #ffffff30;
+			border-color: #0B3142 #2D3047 #2D3047 #0B3142;
+			border-radius: 3px;
+			padding: 1px
+		}
+		
+		button {
+			padding: 2px;
+		}
+		
+		button:active {
+			color: #D1D0B3;
+		}
+		
+		h1 {
+			text-align: center;
+			padding-bottom: 4px;
+		}
+		
+		div:not(#progress) {
+			padding: 2px 4px;
+		}
+		
+		div.password > span {
+			font-size: 1.15em
+		}
+		
+		div.password > input { 
+			width: 100%;
+		}
+		
+		div.optionEnc {
+			display: flex;
+		}
+		
+		div.optionEnc > button {
+			width: 100%
+		}
+		
+		div.crack > button {
+			width: 100%;
+		}
+	
+		#progress {
+			width: 0;
+			height: 25px;
+			line-height: 25px;
+			background-color: #00ff00;
+			transition: width 0.1s;
+			overflow: hidden;
+			color: #003100;
+			text-align: center;
+			min-width: max-content;
+		}
     </style>
   </head>
   <body>
-    <h1>SRA algorithm: Proof Of Concept!</h1>
-    
-    <button type="button" id="btnEncrypt">Encrypt a file</button>
-    <br>
-    <button type="button" id="btnDecrypt">Decrypt a file</button>
-    <br>
-    Password: <strong id="filePath"></strong>
-    <br>
-    <input type="password" id="password" name="password" />
-
-
-    <br>
-    <br>
-    <button type="button" id="btnRecoverPassword">Recover Password</button>
-    <br>
-    
-
+    <h1>SRA: Secure Reinforcing Algorithm!</h1>
+	<div class="password">
+		<span>Password: </span><strong id="filePath"></strong>
+		<input type="password" id="password" name="password" />
+	</div>
+    <div class="optionEnc">
+		<button type="button" id="btnEncrypt">Encrypt a file</button>
+		<button type="button" id="btnDecrypt">Decrypt a file</button>
+	</div>
+    <div class="crack">
+		<button type="button" id="btnRecoverPassword">Recover Password</button>
+	</div>
     <div class="status">
       <p id="status">Status: Waiting for user.</p>
+	  <br>
       <div id="progress"></div>
     </div>
 
