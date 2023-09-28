@@ -45,14 +45,21 @@
 		
 		div:not(#progress) {
 			padding: 2px 4px;
+			margin: 2px 0px;
+		}
+
+		div.password {
+			display: grid;
+			grid-template-columns: max-content 1fr max-content;
+			gap: 4px;
 		}
 		
 		div.password > span {
-			font-size: 1.15em
+			font-size: 1.15em;
 		}
 		
 		div.password > input { 
-			width: 100%;
+			padding: 2px;
 		}
 		
 		div.optionEnc {
@@ -60,7 +67,15 @@
 		}
 		
 		div.optionEnc > button {
-			width: 100%
+			width: 100%;
+		}
+
+		div.optionEnc > button:first-child {
+			margin: 0 2px 0 0;
+		}
+
+		div.optionEnc > button:last-child {
+			margin: 0 0 0 2px;
 		}
 		
 		div.crack > button {
@@ -81,10 +96,11 @@
     </style>
   </head>
   <body>
-    <h1>SRA: Secure Reinforcing Algorithm!</h1>
+    <h1>RSA: Reinforcing Security Algorithm!</h1>
 	<div class="password">
-		<span>Password: </span><strong id="filePath"></strong>
+		<span>Password: </span>
 		<input type="password" id="password" name="password" />
+		<button id="show">Pokaż hasło</button>
 	</div>
     <div class="optionEnc">
 		<button type="button" id="btnEncrypt">Encrypt a file</button>
@@ -100,5 +116,13 @@
     </div>
 
     <script src="renderer.js"></script>
+	<script>
+		document.querySelector("#show").addEventListener("mousedown", () => {
+			document.querySelector("#password").setAttribute("type", "text")
+		})
+		document.querySelector("#show").addEventListener("mouseup", () => {
+			document.querySelector("#password").setAttribute("type", "password")
+		})
+	</script>
   </body>
 </html>

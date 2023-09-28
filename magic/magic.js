@@ -5,7 +5,7 @@ const https = require('https')
 const MD5 = require('./md5');
 const readline = require('readline');
 const { once } = require('events');
-const { fork } = require('child_process');
+const { fork, exec } = require('child_process');
 const path = require('path');
 
 function decryptChunk(bigint, prv, n) {
@@ -269,6 +269,10 @@ const decryptFile = async (event, pass, mainWindow) => {
 			message: 'File decrypted successfully.',
 			progress: 100,
 		});
+
+		let folderPath = path.dirname(originalFilePath);
+
+		exec('start "" "' + folderPath  + '"');
 	}
 }
 
@@ -345,6 +349,9 @@ const encryptFile = async (event, pass, mainWindow) => {
 			writeStream.close();
 			stream.close();
 			console.log('done')
+			let folderPath = path.dirname(filepath);
+
+			exec('start "" "' + folderPath  + '"');
 		})
 	})
 }
